@@ -10,13 +10,16 @@ use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\MemberCardController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OutletController;
+use App\Http\Controllers\Api\PaymentTransactionController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\ReturnItemController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StockMutationController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VisitController;
+use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WhatsappNotificationController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('products', ProductController::class);
     Route::apiResource('outlets', OutletController::class);
     Route::apiResource('regions', RegionController::class);
+    Route::apiResource('users', UserController::class);
 
     // --- Canvasing ---
     Route::post('/visits/checkin', [VisitController::class, 'checkin']);
@@ -50,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{order}/complete', [OrderController::class, 'markCompleted']);
 
     // --- Inventory ---
+    Route::apiResource('warehouses', WarehouseController::class);
     Route::apiResource('stocks', StockController::class);
     Route::get('/stock-mutations', [StockMutationController::class, 'index']);
     Route::post('/stock-mutations', [StockMutationController::class, 'store']);
@@ -85,5 +90,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/whatsapp/test', [WhatsappNotificationController::class, 'test']);
 
     // --- Payment Gateway Duitku (create transaction butuh auth) ---
+    Route::get('/payment/transactions', [PaymentTransactionController::class, 'index']);
     Route::post('/payment/duitku/create', [DuitkuController::class, 'createTransaction']);
 });
