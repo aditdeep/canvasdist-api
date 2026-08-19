@@ -6,13 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\DeliveryOrder;
 use App\Models\Order;
 use App\Http\Controllers\Api\OrderController;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class DeliveryOrderController extends Controller
 {
-    public function __construct(protected OrderController $orderController) {}
+    public function __construct(protected OrderController $orderController, protected NotificationService $notifications) {}
 
     public function index(Request $request)
     {
@@ -60,6 +62,13 @@ class DeliveryOrderController extends Controller
         ]);
 
         $order->update(['status' => 'processing']);
+
+        if ($do->courier_id) {
+            $courier = User::find($do->courier_id);
+            if ($courier) {
+                $this->notifications->notifyDeliveryAssigned($courier, $do->do_number);
+            }
+        }
 
         return response()->json($do->load('order'), 201);
     }

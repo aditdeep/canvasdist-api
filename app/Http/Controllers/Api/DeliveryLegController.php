@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryLeg;
 use App\Models\DeliveryOrder;
+use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class DeliveryLegController extends Controller
 {
+    public function __construct(protected NotificationService $notifications) {}
+
     public function index(DeliveryOrder $deliveryOrder)
     {
         return response()->json($deliveryOrder->legs()->with('fromHub', 'toHub', 'courier')->get());
@@ -43,7 +47,7 @@ class DeliveryLegController extends Controller
         $deliveryOrder->legs()->delete();
 
         foreach ($request->legs as $i => $leg) {
-            DeliveryLeg::create([
+            $newLeg = DeliveryLeg::create([
                 'delivery_order_id' => $deliveryOrder->id,
                 'sequence' => $i + 1,
                 'from_hub_id' => $leg['from_hub_id'] ?? null,
@@ -51,6 +55,13 @@ class DeliveryLegController extends Controller
                 'courier_id' => $leg['courier_id'] ?? null,
                 'status' => 'pending',
             ]);
+
+            if ($newLeg->courier_id) {
+                $courier = User::find($newLeg->courier_id);
+                if ($courier) {
+                    $this->notifications->notifyDeliveryAssigned($courier, $deliveryOrder->do_number, $newLeg->sequence);
+                }
+            }
         }
 
         $deliveryOrder->update(['status' => 'siap_kirim']);

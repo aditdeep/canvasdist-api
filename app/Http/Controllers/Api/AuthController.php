@@ -58,4 +58,79 @@ class AuthController extends Controller
     {
         return response()->json($request->user()->load('wallet', 'memberCard'));
     }
+
+    /**
+     * Edit profil sendiri: nama, telepon, dan foto avatar (opsional, upload file
+     * multipart). Email & role tidak bisa diubah sendiri — itu wewenang admin.
+     */
+    public function updateProfile(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string',
+            'phone' => 'nullable|string',
+            'address' => 'nullable|string',
+            'avatar' => 'nullable|image|max:3072',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $user = $request->user();
+        $data = $request->only(['name', 'phone', 'address']);
+
+        if ($request->hasFile('avatar')) {
+            $data['avatar_path'] = \Illuminate\Support\Facades\Storage::url(
+                $request->file('avatar')->store('avatars', 'public')
+            );
+        }
+
+        $user->update($data);
+
+        return response()->json($user->fresh());
+    }
+
+    /**
+     * Ganti password sendiri (butuh password lama sebagai verifikasi).
+     */
+    public function changePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Password lama salah'], 422);
+        }
+
+        $user->update(['password' => Hash::make($request->new_password)]);
+
+        return response()->json(['message' => 'Password berhasil diubah']);
+    }
+
+    /**
+     * Simpan Expo push token dari device mobile, dipakai untuk kirim notifikasi
+     * (mis. saat kurir di-assign pengiriman baru).
+     */
+    public function registerPushToken(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'push_token' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $request->user()->update(['push_token' => $request->push_token]);
+
+        return response()->json(['message' => 'Token tersimpan']);
+    }
 }

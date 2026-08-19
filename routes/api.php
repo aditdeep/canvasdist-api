@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\VisitController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WhatsappNotificationController;
+use App\Http\Controllers\Api\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,6 +58,9 @@ Route::get('/payment/duitku/return', [DuitkuController::class, 'returnUrl']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::post('/auth/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/auth/push-token', [AuthController::class, 'registerPushToken']);
 
     // --- Master Data ---
     Route::apiResource('products', ProductController::class)->only(['index', 'show']);
@@ -155,6 +159,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wallet/payment-methods', [WalletController::class, 'paymentMethods']);
     Route::post('/wallet/topup', [WalletController::class, 'topup']);
     Route::get('/wallet/mutations', [WalletController::class, 'mutations']);
+
+    // --- Withdraw (tarik saldo ke rekening bank) ---
+    Route::get('/withdrawals', [WithdrawalController::class, 'index']);
+    Route::post('/withdrawals', [WithdrawalController::class, 'store']);
+    Route::get('/withdrawals/{withdrawal}', [WithdrawalController::class, 'show']);
+    Route::put('/withdrawals/{withdrawal}', [WithdrawalController::class, 'update'])
+        ->middleware('role:super_admin,wilayah,agen');
 
     // --- Cashback Barang Bekas ---
     Route::apiResource('buyback', BuybackController::class)->only(['index', 'show', 'store']);

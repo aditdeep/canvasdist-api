@@ -221,6 +221,34 @@ Tanpa ini, foto yang diupload (checkin canvasing, POD pengiriman, buyback barang
 akan tersimpan tapi **tidak bisa diakses lewat URL publik** — pastikan juga Nginx
 mengizinkan akses ke folder `/storage` (sudah otomatis lewat symlink `public/storage`).
 
+### Wajib: naikkan limit upload file (Nginx + PHP)
+
+Default Nginx (`client_max_body_size`) dan PHP (`upload_max_filesize`) sering
+terlalu kecil (1-2MB) untuk foto dari kamera HP, menyebabkan upload checkin/POD/
+buyback gagal dengan error yang membingungkan (biasanya terlihat sebagai error
+jaringan generik, bukan pesan validasi yang jelas).
+
+Edit config Nginx untuk site ini (`/etc/nginx/sites-available/canvasdist-api`),
+tambahkan di dalam blok `server {}`:
+
+```nginx
+client_max_body_size 10M;
+```
+
+Edit PHP-FPM config (`/etc/php/8.3/fpm/php.ini`):
+
+```ini
+upload_max_filesize = 10M
+post_max_size = 10M
+```
+
+Reload keduanya:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+sudo systemctl restart php8.3-fpm
+```
+
 ## 8. Konfigurasi Nginx
 
 Buat file config baru (folder baru, tidak menimpa config `mt5split`):
