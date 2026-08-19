@@ -85,7 +85,46 @@ php artisan install:api
 ```
 
 > `php artisan install:api` akan generate migration Sanctum & daftarkan middleware —
-> ikuti saja prompt default-nya.
+> ikuti saja prompt default-nya. Kalau muncul `ERROR API routes file already exists`,
+> itu wajar (karena `routes/api.php` sudah kita isi duluan) — lanjut saja.
+
+### ⚠️ Wajib: perbaiki `bootstrap/app.php`
+
+Laravel 11 fresh install **tidak otomatis memuat `routes/api.php`**, meskipun Sanctum
+sudah terpasang. Tanpa langkah ini, semua endpoint `/api/*` akan selalu 404.
+
+```bash
+nano bootstrap/app.php
+```
+
+Ubah bagian `->withRouting(...)` jadi:
+
+```php
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        apiPrefix: 'api',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+```
+
+### ⚠️ Wajib: hapus migration `users` bawaan Laravel
+
+Laravel 11 fresh install sudah punya migration `0001_01_01_000000_create_users_table.php`
+sendiri yang juga membuat tabel `users`. Migration kita (`2026081900_create_users_table.php`)
+punya skema berbeda (role, parent_id, dst) — kalau keduanya jalan akan konflik
+`relation "users" already exists`.
+
+```bash
+rm database/migrations/0001_01_01_000000_create_users_table.php
+```
+
+File itu juga membuat tabel `sessions` — kalau nanti butuh, set di `.env`:
+
+```env
+SESSION_DRIVER=file
+```
 
 ## 4. Setup environment
 
@@ -146,10 +185,24 @@ GRANT ALL PRIVILEGES ON DATABASE canvasdist TO canvasdist_user;
 php artisan migrate --seed
 ```
 
+> Kalau sempat migrate sebagian lalu gagal (misal karena lupa hapus migration `users`
+> bawaan di atas), reset bersih dengan `php artisan migrate:fresh --seed` — aman karena
+> database masih baru/kosong.
+
 Kalau sukses, akan ada data uji: admin, wilayah, agen, reseller, sales
 (lihat `database/seeders/DatabaseSeeder.php` untuk kredensialnya, semua password `password`).
 
-**Ganti password akun-akun seed ini sebelum benar-benar dipakai production.**
+**Ganti password akun seed ini sebelum benar-benar dipakai production**, contoh via tinker:
+
+```bash
+php artisan tinker
+```
+```php
+$user = User::where('email', 'admin@canvasdist.test')->first();
+$user->password = bcrypt('password_baru_kamu');
+$user->save();
+exit
+```
 
 ## 7. Set permission
 

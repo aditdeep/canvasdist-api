@@ -38,3 +38,16 @@ php artisan key:generate
 php artisan migrate --seed
 php artisan serve
 ```
+
+## ⚠️ Setup penting yang mudah terlewat
+
+1. **`bootstrap/app.php`** — Laravel 11 fresh install TIDAK otomatis memuat `routes/api.php`
+   meskipun Sanctum sudah di-install. Copy isi `bootstrap/app.php` di repo ini (referensi)
+   ke project fresh kamu, atau endpoint `/api/*` akan selalu 404.
+2. **Migration `users` bawaan Laravel** — hapus `database/migrations/0001_01_01_000000_create_users_table.php`
+   bawaan (skeleton default) sebelum migrate, karena tabel `users` kita sudah didefinisikan
+   ulang dengan skema custom (role, parent_id, dst) di migration kita sendiri — akan konflik
+   "relation users already exists" kalau keduanya jalan.
+3. Set `SESSION_DRIVER=file` di `.env` (bukan `database`) kalau migration `sessions` bawaan ikut terhapus.
+
+Panduan lengkap deploy ke VPS dari nol: lihat [`DEPLOYMENT.md`](./DEPLOYMENT.md).
