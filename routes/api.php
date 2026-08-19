@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\OutletController;
 use App\Http\Controllers\Api\PaymentTransactionController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PromoController;
+use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\ReturnItemController;
 use App\Http\Controllers\Api\StockController;
@@ -47,6 +48,12 @@ use Illuminate\Support\Facades\Route;
 
 // --- Auth ---
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// --- Storefront publik (tanpa login) ---
+Route::get('/public/products', [PublicController::class, 'products']);
+Route::get('/public/products/{product}', [PublicController::class, 'productDetail']);
+Route::get('/public/regions', [PublicController::class, 'regions']);
+Route::post('/public/register', [PublicController::class, 'registerCustomer']);
 
 // --- Tracking publik (tanpa login, dipakai outlet untuk cek status kirim) ---
 Route::get('/track/{doNumber}', [DeliveryTrackingController::class, 'publicTrack']);

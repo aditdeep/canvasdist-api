@@ -26,6 +26,8 @@ class OrderController extends Controller
 
         if ($request->user()->isRole('agen', 'wilayah')) {
             $query->where('agent_id', $request->user()->id);
+        } elseif ($request->user()->role === 'customer') {
+            $query->where('outlet_id', $request->user()->outlet_id);
         }
 
         if ($request->filled('status')) {
@@ -37,15 +39,20 @@ class OrderController extends Controller
 
     /**
      * Buat order baru — biasanya dari hasil canvasing (visit_id ada),
-     * tapi bisa juga order langsung tanpa kunjungan.
+     * tapi bisa juga order langsung tanpa kunjungan, atau order storefront
+     * dari customer (outlet_id & agent_id otomatis dari akun customer,
+     * tidak bisa diisi manual dari request demi keamanan).
      */
     public function store(Request $request)
     {
+        $isCustomer = $request->user()->role === 'customer';
+
         $validator = Validator::make($request->all(), [
             'visit_id' => 'nullable|exists:visits,id',
-            'outlet_id' => 'required|exists:outlets,id',
+            'outlet_id' => $isCustomer ? 'nullable' : 'required|exists:outlets,id',
             'agent_id' => 'nullable|exists:users,id',
             'payment_method' => 'nullable|in:cash,saldo,duitku',
+            'fulfillment_type' => 'nullable|in:delivery,pickup',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.qty' => 'required|integer|min:1',
@@ -55,13 +62,22 @@ class OrderController extends Controller
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
-        $order = DB::transaction(function () use ($request) {
+        if ($isCustomer && !$request->user()->outlet_id) {
+            return response()->json(['message' => 'Akun kamu belum punya alamat pengiriman terdaftar.'], 422);
+        }
+
+        $order = DB::transaction(function () use ($request, $isCustomer) {
+            $outletId = $isCustomer ? $request->user()->outlet_id : $request->outlet_id;
+            $agentId = $isCustomer ? $request->user()->outlet->agent_id : $request->agent_id;
+
             $order = Order::create([
                 'order_no' => 'ORD-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6)),
                 'visit_id' => $request->visit_id,
-                'outlet_id' => $request->outlet_id,
-                'agent_id' => $request->agent_id,
+                'outlet_id' => $outletId,
+                'agent_id' => $agentId,
                 'payment_method' => $request->payment_method ?? 'cash',
+                'fulfillment_type' => $request->fulfillment_type ?? 'delivery',
+                'is_storefront_order' => $isCustomer,
                 'status' => 'pending',
             ]);
 
@@ -71,8 +87,11 @@ class OrderController extends Controller
             foreach ($request->items as $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $qty = (int) $item['qty'];
-                $price = $product->priceForLevel($request->user()->role ?? 'reseller');
-                $discount = $this->promoService->calculateItemDiscount($qty, $price, $request->user()->role ?? null);
+                // Customer storefront selalu pakai harga level 'reseller' (harga retail-facing),
+                // konsisten dengan yang ditampilkan di katalog publik.
+                $priceLevel = $isCustomer ? 'reseller' : ($request->user()->role ?? 'reseller');
+                $price = $product->priceForLevel($priceLevel);
+                $discount = $this->promoService->calculateItemDiscount($qty, $price, $priceLevel);
                 $lineSubtotal = ($qty * $price) - $discount;
 
                 OrderItem::create([

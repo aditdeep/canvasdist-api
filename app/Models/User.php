@@ -11,7 +11,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'parent_id', 'region_code', 'address', 'avatar_path', 'push_token', 'is_active'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'parent_id', 'region_code', 'address', 'avatar_path', 'push_token', 'outlet_id', 'is_active'];
     protected $hidden = ['password', 'remember_token'];
     protected $casts = ['is_active' => 'boolean', 'email_verified_at' => 'datetime'];
 
@@ -24,6 +24,7 @@ class User extends Authenticatable
     public function wallet() { return $this->hasOne(Wallet::class); }
     public function memberCard() { return $this->hasOne(MemberCard::class); }
     public function commissions() { return $this->hasMany(Commission::class); }
+    public function outlet() { return $this->belongsTo(Outlet::class); }
 
     public function isRole(string ...$roles): bool { return in_array($this->role, $roles); }
 
