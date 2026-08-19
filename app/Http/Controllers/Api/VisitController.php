@@ -23,7 +23,7 @@ class VisitController extends Controller
 
     /**
      * Cek-in kunjungan sales ke outlet.
-     * Wajib GPS. Foto etalase/stok opsional tapi disarankan.
+     * Wajib GPS. Foto etalase/stok opsional (upload file beneran, disimpan ke storage).
      */
     public function checkin(Request $request)
     {
@@ -31,7 +31,7 @@ class VisitController extends Controller
             'outlet_id' => 'required|exists:outlets,id',
             'checkin_lat' => 'required|numeric|between:-90,90',
             'checkin_lng' => 'required|numeric|between:-180,180',
-            'photo_path' => 'nullable|string',
+            'photo' => 'nullable|image|max:5120',
             'notes' => 'nullable|string',
         ]);
 
@@ -39,12 +39,16 @@ class VisitController extends Controller
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
+        $photoPath = $request->hasFile('photo')
+            ? \Illuminate\Support\Facades\Storage::url($request->file('photo')->store('visits', 'public'))
+            : null;
+
         $visit = Visit::create([
             'sales_id' => $request->user()->id,
             'outlet_id' => $request->outlet_id,
             'checkin_lat' => $request->checkin_lat,
             'checkin_lng' => $request->checkin_lng,
-            'photo_path' => $request->photo_path,
+            'photo_path' => $photoPath,
             'notes' => $request->notes,
             'visited_at' => now(),
         ]);

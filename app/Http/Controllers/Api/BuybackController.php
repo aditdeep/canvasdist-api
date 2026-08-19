@@ -30,12 +30,16 @@ class BuybackController extends Controller
             'item_type' => 'required|string',
             'qty' => 'required|integer|min:1',
             'unit_price' => 'required|numeric|min:0',
-            'photo_path' => 'nullable|string',
+            'photo' => 'nullable|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
+
+        $photoPath = $request->hasFile('photo')
+            ? \Illuminate\Support\Facades\Storage::url($request->file('photo')->store('buyback', 'public'))
+            : null;
 
         $buyback = Buyback::create([
             'visit_id' => $request->visit_id,
@@ -44,7 +48,7 @@ class BuybackController extends Controller
             'qty' => $request->qty,
             'unit_price' => $request->unit_price,
             'cashback_amount' => $request->qty * $request->unit_price,
-            'photo_path' => $request->photo_path,
+            'photo_path' => $photoPath,
             'status' => 'pending',
         ]);
 

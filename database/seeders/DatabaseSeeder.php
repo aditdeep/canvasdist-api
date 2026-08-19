@@ -60,8 +60,26 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
+        $kurir = User::create([
+            'name' => 'Kurir Andi',
+            'email' => 'kurir@canvasdist.test',
+            'password' => Hash::make('password'),
+            'role' => 'kurir',
+            'parent_id' => $agen->id,
+            'is_active' => true,
+        ]);
+
+        $gudang = User::create([
+            'name' => 'Gudang Semarang',
+            'email' => 'gudang@canvasdist.test',
+            'password' => Hash::make('password'),
+            'role' => 'gudang',
+            'parent_id' => $agen->id,
+            'is_active' => true,
+        ]);
+
         // Buat wallet untuk semua user
-        foreach ([$admin, $wilayah, $agen, $reseller, $sales] as $user) {
+        foreach ([$admin, $wilayah, $agen, $reseller, $sales, $kurir, $gudang] as $user) {
             Wallet::create(['user_id' => $user->id, 'balance' => 0]);
         }
 

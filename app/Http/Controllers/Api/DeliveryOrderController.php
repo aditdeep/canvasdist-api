@@ -85,24 +85,44 @@ class DeliveryOrderController extends Controller
     /**
      * Upload bukti terima (foto + tanda tangan digital) -> tandai selesai
      * -> order jadi 'completed' -> trigger komisi jaringan.
+     *
+     * Terima file upload beneran (multipart/form-data) untuk foto & tanda tangan,
+     * disimpan ke storage/app/public/pod dan diakses lewat /storage/pod/....
      */
     public function uploadPod(Request $request, DeliveryOrder $deliveryOrder)
     {
         $validator = Validator::make($request->all(), [
-            'pod_photo_path' => 'required|string',
-            'pod_signature_path' => 'nullable|string',
+            'photo' => 'required|image|max:5120', // max 5MB
+            'signature' => 'nullable|image|max:2048',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
+        $photoPath = $request->file('photo')->store('pod', 'public');
+        $signaturePath = $request->hasFile('signature')
+            ? $request->file('signature')->store('pod-signatures', 'public')
+            : null;
+
         $deliveryOrder->update([
-            'pod_photo_path' => $request->pod_photo_path,
-            'pod_signature_path' => $request->pod_signature_path,
+            'pod_photo_path' => \Illuminate\Support\Facades\Storage::url($photoPath),
+            'pod_signature_path' => $signaturePath ? \Illuminate\Support\Facades\Storage::url($signaturePath) : null,
             'status' => 'selesai',
             'delivered_at' => now(),
         ]);
+
+        // Catat titik lokasi terakhir saat POD diambil, kalau kurir kirim koordinat
+        if ($request->filled('lat') && $request->filled('lng')) {
+            $deliveryOrder->trackings()->create([
+                'lat' => $request->lat,
+                'lng' => $request->lng,
+                'status' => 'selesai',
+                'recorded_at' => now(),
+            ]);
+        }
 
         $this->orderController->markCompleted($deliveryOrder->order);
 

@@ -211,6 +211,16 @@ sudo chown -R www-data:www-data /var/www/canvasdist-api
 sudo chmod -R 755 storage bootstrap/cache
 ```
 
+### Wajib: link storage publik (untuk foto checkin/POD/buyback)
+
+```bash
+php artisan storage:link
+```
+
+Tanpa ini, foto yang diupload (checkin canvasing, POD pengiriman, buyback barang bekas)
+akan tersimpan tapi **tidak bisa diakses lewat URL publik** — pastikan juga Nginx
+mengizinkan akses ke folder `/storage` (sudah otomatis lewat symlink `public/storage`).
+
 ## 8. Konfigurasi Nginx
 
 Buat file config baru (folder baru, tidak menimpa config `mt5split`):
