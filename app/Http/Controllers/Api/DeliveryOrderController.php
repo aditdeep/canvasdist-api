@@ -16,10 +16,17 @@ class DeliveryOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = DeliveryOrder::with('order.outlet');
+        $query = DeliveryOrder::with('order.outlet', 'courier', 'legs.fromHub', 'legs.toHub', 'legs.courier');
 
         if ($request->user()->isRole('kurir')) {
-            $query->where('courier_id', $request->user()->id);
+            // Kurir lihat DO yang sedang jadi kurir aktifnya, ATAU DO yang punya
+            // etape (leg) ditugaskan ke dia meski belum jadi kurir aktif saat ini
+            // (misal masih menunggu etape sebelumnya selesai).
+            $userId = $request->user()->id;
+            $query->where(function ($q) use ($userId) {
+                $q->where('courier_id', $userId)
+                    ->orWhereHas('legs', fn ($l) => $l->where('courier_id', $userId)->whereIn('status', ['pending', 'in_transit']));
+            });
         }
 
         return response()->json($query->latest()->paginate(20));

@@ -16,5 +16,12 @@ class DeliveryOrder extends Model
     public function order() { return $this->belongsTo(Order::class); }
     public function courier() { return $this->belongsTo(User::class, 'courier_id'); }
     public function trackings() { return $this->hasMany(DeliveryTracking::class); }
+    public function legs() { return $this->hasMany(DeliveryLeg::class)->orderBy('sequence'); }
+
+    /** Etape yang sedang berjalan/berikutnya yang belum tiba. */
+    public function activeLeg()
+    {
+        return $this->legs()->where('status', '!=', 'arrived')->orderBy('sequence')->first();
+    }
 
 }

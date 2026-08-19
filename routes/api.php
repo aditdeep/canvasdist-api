@@ -4,8 +4,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuybackController;
 use App\Http\Controllers\Api\CommissionController;
 use App\Http\Controllers\Api\DeliveryOrderController;
+use App\Http\Controllers\Api\DeliveryLegController;
 use App\Http\Controllers\Api\DeliveryTrackingController;
 use App\Http\Controllers\Api\DuitkuController;
+use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\MemberCardController;
 use App\Http\Controllers\Api\OrderController;
@@ -112,6 +114,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/delivery-orders/{deliveryOrder}/track', [DeliveryTrackingController::class, 'store'])
         ->middleware('role:super_admin,agen,gudang,kurir');
     Route::post('/delivery-orders/{deliveryOrder}/pod', [DeliveryOrderController::class, 'uploadPod'])
+        ->middleware('role:super_admin,agen,gudang,kurir');
+
+    // --- Rute Multi-Hub ---
+    Route::get('/hubs', [HubController::class, 'index']);
+    Route::apiResource('hubs', HubController::class)->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
+    Route::get('/delivery-orders/{deliveryOrder}/legs', [DeliveryLegController::class, 'index']);
+    Route::post('/delivery-orders/{deliveryOrder}/legs', [DeliveryLegController::class, 'store'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
+    Route::post('/delivery-legs/{leg}/start', [DeliveryLegController::class, 'start'])
+        ->middleware('role:super_admin,agen,gudang,kurir');
+    Route::post('/delivery-legs/{leg}/arrive', [DeliveryLegController::class, 'arrive'])
         ->middleware('role:super_admin,agen,gudang,kurir');
 
     // --- Piutang & Retur ---
