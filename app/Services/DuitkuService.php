@@ -5,13 +5,8 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Integrasi Duitku (payment gateway).
- *
- * PENTING: signature & endpoint di bawah ini mengikuti skema umum Duitku API v2
- * (Invoice/Pop). Sebelum production, cocokkan lagi field & endpoint persis dengan
- * dokumentasi resmi Duitku terbaru di https://docs.duitku.com — terutama karena
- * merchant code & format bisa beda tergantung produk Duitku yang dipakai
- * (Invoice, Pop, atau Disbursement).
+ * Integrasi Duitku (payment gateway) — mengikuti dokumentasi resmi
+ * https://docs.duitku.com/api/en/ (Request Transaction / "Invoice API v2").
  */
 class DuitkuService
 {
@@ -31,21 +26,27 @@ class DuitkuService
     /**
      * Buat transaksi baru (top-up saldo / pembayaran order).
      * $reference = merchantOrderId di sisi Duitku, harus unik.
+     *
+     * paymentMethod dikosongkan (empty string) supaya customer diarahkan ke
+     * halaman pilihan metode pembayaran Duitku (VA/QRIS/e-wallet dll),
+     * bukan dipaksa ke satu channel tertentu.
      */
     public function createTransaction(string $reference, float $amount, string $customerName, string $customerEmail): array
     {
         $paymentAmount = (int) round($amount);
         $signature = md5($this->merchantCode . $reference . $paymentAmount . $this->apiKey);
 
-        $response = Http::post("{$this->baseUrl}/createInvoice", [
+        $response = Http::post("{$this->baseUrl}/v2/inquiry", [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
+            'paymentMethod' => '',
             'merchantOrderId' => $reference,
             'productDetails' => 'CanvasDist - Top Up Saldo / Pembayaran',
             'email' => $customerEmail,
             'customerVaName' => $customerName,
             'callbackUrl' => config('duitku.callback_url'),
             'returnUrl' => config('duitku.return_url'),
+            'expiryPeriod' => 60,
             'signature' => $signature,
         ]);
 
@@ -55,6 +56,8 @@ class DuitkuService
     /**
      * Verifikasi signature callback dari Duitku sebelum memproses status pembayaran.
      * Signature callback Duitku: md5(merchantCode + amount + merchantOrderId + apiKey)
+     * Catatan: body callback dikirim sebagai x-www-form-urlencoded, bukan JSON —
+     * Laravel tetap bisa baca lewat $request->all() seperti biasa.
      */
     public function verifyCallbackSignature(array $payload): bool
     {
