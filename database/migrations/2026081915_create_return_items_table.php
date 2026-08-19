@@ -4,17 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rencana kolom: id, order_id, product_id, qty, reason, timestamps
- * TODO: lengkapi kolom, foreign key, dan index sesuai kebutuhan final.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('return_items', function (Blueprint $table) {
             $table->id();
-            // TODO: tambahkan kolom sesuai daftar rencana di atas
+            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained();
+            $table->integer('qty');
+            $table->string('reason')->nullable();
+            $table->enum('status', ['pending','approved','rejected'])->default('pending');
             $table->timestamps();
         });
     }

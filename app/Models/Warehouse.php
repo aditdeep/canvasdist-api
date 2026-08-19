@@ -5,15 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * Warehouse
- * Fields (rencana): name, agent_id, address
- */
+
 class Warehouse extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        // TODO: sesuaikan dengan migration
-    ];
+    protected $fillable = ['name', 'agent_id', 'address'];
+
+    public function agent() { return $this->belongsTo(User::class, 'agent_id'); }
+    public function stocks() { return $this->hasMany(Stock::class); }
+
 }

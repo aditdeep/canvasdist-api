@@ -5,15 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * Stock
- * Fields (rencana): warehouse_id, product_id, qty
- */
+
 class Stock extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        // TODO: sesuaikan dengan migration
-    ];
+    protected $fillable = ['warehouse_id', 'product_id', 'qty'];
+
+    public function warehouse() { return $this->belongsTo(Warehouse::class); }
+    public function product() { return $this->belongsTo(Product::class); }
+
 }

@@ -4,17 +4,15 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rencana kolom: id, name, agent_id, address, timestamps
- * TODO: lengkapi kolom, foreign key, dan index sesuai kebutuhan final.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('warehouses', function (Blueprint $table) {
             $table->id();
-            // TODO: tambahkan kolom sesuai daftar rencana di atas
+            $table->string('name');
+            $table->foreignId('agent_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->text('address')->nullable();
             $table->timestamps();
         });
     }

@@ -5,15 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * MemberCard
- * Fields (rencana): user_id, card_number, qr_code, level
- */
+
 class MemberCard extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        // TODO: sesuaikan dengan migration
-    ];
+    protected $fillable = ['user_id', 'card_number', 'qr_code', 'level', 'issued_at'];
+    protected $casts = ['issued_at' => 'datetime'];
+
+    public function user() { return $this->belongsTo(User::class); }
+
 }

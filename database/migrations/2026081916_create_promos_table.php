@@ -4,17 +4,20 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rencana kolom: id, name, type, value, start_date, end_date, target_level, timestamps
- * TODO: lengkapi kolom, foreign key, dan index sesuai kebutuhan final.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('promos', function (Blueprint $table) {
             $table->id();
-            // TODO: tambahkan kolom sesuai daftar rencana di atas
+            $table->string('name');
+            $table->enum('type', ['discount_percent','discount_fixed','tiered','points']);
+            $table->decimal('value', 15, 2);
+            $table->integer('min_qty')->nullable();
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->enum('target_level', ['wilayah','agen','reseller','outlet'])->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

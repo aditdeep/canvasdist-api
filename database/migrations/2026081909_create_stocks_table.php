@@ -4,18 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rencana kolom: id, warehouse_id, product_id, qty, timestamps
- * TODO: lengkapi kolom, foreign key, dan index sesuai kebutuhan final.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('stocks', function (Blueprint $table) {
             $table->id();
-            // TODO: tambahkan kolom sesuai daftar rencana di atas
+            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->integer('qty')->default(0);
             $table->timestamps();
+            $table->unique(['warehouse_id', 'product_id']);
         });
     }
 

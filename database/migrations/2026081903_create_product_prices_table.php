@@ -4,18 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rencana kolom: id, product_id, level, price, timestamps
- * TODO: lengkapi kolom, foreign key, dan index sesuai kebutuhan final.
- */
 return new class extends Migration
 {
     public function up(): void
     {
         Schema::create('product_prices', function (Blueprint $table) {
             $table->id();
-            // TODO: tambahkan kolom sesuai daftar rencana di atas
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->enum('level', ['wilayah','agen','reseller']);
+            $table->decimal('price', 15, 2);
             $table->timestamps();
+            $table->unique(['product_id', 'level']);
         });
     }
 

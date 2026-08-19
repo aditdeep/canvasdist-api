@@ -5,15 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * ReturnItem
- * Fields (rencana): order_id, product_id, qty, reason
- */
+
 class ReturnItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        // TODO: sesuaikan dengan migration
-    ];
+    protected $table = 'return_items';
+    protected $fillable = ['order_id', 'product_id', 'qty', 'reason', 'status'];
+
+    public function order() { return $this->belongsTo(Order::class); }
+    public function product() { return $this->belongsTo(Product::class); }
+
 }
