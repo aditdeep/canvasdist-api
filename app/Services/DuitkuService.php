@@ -27,11 +27,11 @@ class DuitkuService
      * Buat transaksi baru (top-up saldo / pembayaran order).
      * $reference = merchantOrderId di sisi Duitku, harus unik.
      *
-     * paymentMethod dikosongkan (empty string) supaya customer diarahkan ke
-     * halaman pilihan metode pembayaran Duitku (VA/QRIS/e-wallet dll),
-     * bukan dipaksa ke satu channel tertentu.
+     * paymentMethod WAJIB diisi kode channel valid (Duitku menolak string kosong) —
+     * lihat daftar kode di https://docs.duitku.com/api/en/#payment-method
+     * (mis. BC=BCA VA, M2=Mandiri VA, OV=OVO, SP=ShopeePay QRIS, dst).
      */
-    public function createTransaction(string $reference, float $amount, string $customerName, string $customerEmail): array
+    public function createTransaction(string $reference, float $amount, string $customerName, string $customerEmail, string $paymentMethod = 'BC'): array
     {
         $paymentAmount = (int) round($amount);
         $signature = md5($this->merchantCode . $reference . $paymentAmount . $this->apiKey);
@@ -39,7 +39,7 @@ class DuitkuService
         $response = Http::post("{$this->baseUrl}/v2/inquiry", [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
-            'paymentMethod' => '',
+            'paymentMethod' => $paymentMethod,
             'merchantOrderId' => $reference,
             'productDetails' => 'CanvasDist - Top Up Saldo / Pembayaran',
             'email' => $customerEmail,
@@ -69,5 +69,26 @@ class DuitkuService
         );
 
         return hash_equals($expected, $payload['signature'] ?? '');
+    }
+
+    /**
+     * Ambil daftar metode pembayaran yang aktif untuk project ini beserta biayanya,
+     * supaya user bisa memilih channel (VA/QRIS/e-wallet) sebelum bayar, bukan
+     * dipaksa satu channel tetap.
+     */
+    public function getPaymentMethods(float $amount): array
+    {
+        $datetime = now()->format('Y-m-d H:i:s');
+        $paymentAmount = (int) round($amount);
+        $signature = hash('sha256', $this->merchantCode . $paymentAmount . $datetime . $this->apiKey);
+
+        $response = Http::post("{$this->baseUrl}/paymentmethod/getpaymentmethod", [
+            'merchantcode' => $this->merchantCode,
+            'amount' => $paymentAmount,
+            'datetime' => $datetime,
+            'signature' => $signature,
+        ]);
+
+        return $response->json('paymentFee') ?? [];
     }
 }

@@ -29,14 +29,21 @@ class WalletController extends Controller
     }
 
     /**
-     * Mulai top-up saldo lewat Duitku. Balik response berisi payment URL untuk dibuka
-     * user (redirect ke halaman pembayaran Duitku). Saldo baru bertambah setelah
-     * callback Duitku diterima & sukses — lihat DuitkuController@callback.
+     * List metode pembayaran aktif dari Duitku untuk ditampilkan sebagai pilihan
+     * channel (VA/QRIS/e-wallet) sebelum user klik top up.
      */
+    public function paymentMethods(Request $request)
+    {
+        $amount = (float) $request->query('amount', 50000);
+
+        return response()->json($this->duitku->getPaymentMethods($amount));
+    }
+
     public function topup(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:10000',
+            'payment_method' => 'nullable|string|max:2',
         ]);
 
         if ($validator->fails()) {
@@ -55,11 +62,14 @@ class WalletController extends Controller
             'status' => 'pending',
         ]);
 
+        // Default BC (BCA Virtual Account) kalau user belum pilih metode — Duitku
+        // mewajibkan paymentMethod diisi kode channel valid, tidak bisa dikosongkan.
         $duitkuResponse = $this->duitku->createTransaction(
             reference: $reference,
             amount: (float) $request->amount,
             customerName: $request->user()->name,
             customerEmail: $request->user()->email,
+            paymentMethod: $request->payment_method ?: 'BC',
         );
 
         $transaction->update(['payload' => $duitkuResponse]);
@@ -67,6 +77,7 @@ class WalletController extends Controller
         return response()->json([
             'transaction' => $transaction,
             'payment_url' => $duitkuResponse['paymentUrl'] ?? null,
+            'va_number' => $duitkuResponse['vaNumber'] ?? null,
         ]);
     }
 }

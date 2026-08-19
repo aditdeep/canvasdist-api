@@ -138,6 +138,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Saldo / Wallet (selalu ter-scope ke user login sendiri, semua role boleh) ---
     Route::get('/wallet', [WalletController::class, 'show']);
+    Route::get('/wallet/payment-methods', [WalletController::class, 'paymentMethods']);
     Route::post('/wallet/topup', [WalletController::class, 'topup']);
     Route::get('/wallet/mutations', [WalletController::class, 'mutations']);
 
