@@ -27,12 +27,18 @@ class DuitkuService
      * Buat transaksi baru (top-up saldo / pembayaran order).
      * $reference = merchantOrderId di sisi Duitku, harus unik.
      *
-     * paymentMethod WAJIB diisi kode channel valid (Duitku menolak string kosong) —
-     * lihat daftar kode di https://docs.duitku.com/api/en/#payment-method
-     * (mis. BC=BCA VA, M2=Mandiri VA, OV=OVO, SP=ShopeePay QRIS, dst).
+     * $returnUrl opsional — kalau tidak diisi, pakai default dari config
+     * (dipakai web). App mobile mengirim deep link sendiri (mis. canvasdist://payment-return)
+     * supaya browser otomatis balik ke app setelah pembayaran selesai.
      */
-    public function createTransaction(string $reference, float $amount, string $customerName, string $customerEmail, string $paymentMethod = 'BC'): array
-    {
+    public function createTransaction(
+        string $reference,
+        float $amount,
+        string $customerName,
+        string $customerEmail,
+        string $paymentMethod = 'BC',
+        ?string $returnUrl = null
+    ): array {
         $paymentAmount = (int) round($amount);
         $signature = md5($this->merchantCode . $reference . $paymentAmount . $this->apiKey);
 
@@ -45,7 +51,7 @@ class DuitkuService
             'email' => $customerEmail,
             'customerVaName' => $customerName,
             'callbackUrl' => config('duitku.callback_url'),
-            'returnUrl' => config('duitku.return_url'),
+            'returnUrl' => $returnUrl ?: config('duitku.return_url'),
             'expiryPeriod' => 60,
             'signature' => $signature,
         ]);

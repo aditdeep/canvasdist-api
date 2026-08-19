@@ -44,6 +44,7 @@ class WalletController extends Controller
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:10000',
             'payment_method' => 'nullable|string|max:2',
+            'return_url' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -70,6 +71,7 @@ class WalletController extends Controller
             customerName: $request->user()->name,
             customerEmail: $request->user()->email,
             paymentMethod: $request->payment_method ?: 'BC',
+            returnUrl: $request->return_url, // dari mobile: deep link canvasdist://payment-return
         );
 
         $transaction->update(['payload' => $duitkuResponse]);
