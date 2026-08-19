@@ -9,9 +9,18 @@ use Illuminate\Support\Facades\Validator;
 
 class WarehouseController extends Controller
 {
+    /**
+     * Agen hanya lihat gudang miliknya sendiri.
+     */
     public function index(Request $request)
     {
-        return response()->json(Warehouse::latest()->paginate(20));
+        $query = Warehouse::latest();
+
+        if ($request->user()->role === 'agen') {
+            $query->where('agent_id', $request->user()->id);
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     public function store(Request $request)

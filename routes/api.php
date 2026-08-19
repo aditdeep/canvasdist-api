@@ -24,6 +24,24 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WhatsappNotificationController;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| Ringkasan Role
+|--------------------------------------------------------------------------
+| super_admin : akses penuh semua endpoint
+| wilayah     : kelola region, approve order besar, lihat laporan jaringan
+| agen        : kelola outlet/gudang/sales miliknya, approve order, buat DO
+| reseller    : lihat & buat order sendiri, saldo sendiri
+| sales       : checkin canvasing, buat order, input buyback
+| gudang      : kelola stok, buat Surat Jalan (DO)
+| kurir       : update status pengiriman & tracking yang di-assign ke dia
+|
+| Endpoint baca (index/show) umumnya terbuka untuk semua role yang login,
+| lalu di-scope per user di controller (lihat catatan "scoped" di masing-
+| masing controller). Endpoint tulis (store/update/destroy) yang berdampak
+| ke data lintas-user dibatasi via middleware `role:`.
+*/
+
 // --- Auth ---
 Route::post('/auth/login', [AuthController::class, 'login']);
 
@@ -39,57 +57,104 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
 
     // --- Master Data ---
-    Route::apiResource('products', ProductController::class);
-    Route::apiResource('outlets', OutletController::class);
-    Route::apiResource('regions', RegionController::class);
-    Route::apiResource('users', UserController::class);
+    Route::apiResource('products', ProductController::class)->only(['index', 'show']);
+    Route::apiResource('products', ProductController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen');
+
+    Route::apiResource('outlets', OutletController::class)->only(['index', 'show']);
+    Route::apiResource('outlets', OutletController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen,sales');
+
+    Route::apiResource('regions', RegionController::class)->only(['index', 'show']);
+    Route::apiResource('regions', RegionController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah');
+
+    Route::apiResource('users', UserController::class)->middleware('role:super_admin');
 
     // --- Canvasing ---
-    Route::post('/visits/checkin', [VisitController::class, 'checkin']);
+    Route::post('/visits/checkin', [VisitController::class, 'checkin'])->middleware('role:sales,agen,super_admin');
     Route::apiResource('visits', VisitController::class)->except(['store']);
 
     // --- Order ---
     Route::apiResource('orders', OrderController::class);
-    Route::post('/orders/{order}/approve', [OrderController::class, 'approve']);
-    Route::post('/orders/{order}/complete', [OrderController::class, 'markCompleted']);
+    Route::post('/orders/{order}/approve', [OrderController::class, 'approve'])
+        ->middleware('role:super_admin,wilayah,agen');
+    Route::post('/orders/{order}/complete', [OrderController::class, 'markCompleted'])
+        ->middleware('role:super_admin,wilayah,agen,gudang,kurir');
 
     // --- Inventory ---
-    Route::apiResource('warehouses', WarehouseController::class);
-    Route::apiResource('stocks', StockController::class);
+    Route::apiResource('warehouses', WarehouseController::class)->only(['index', 'show']);
+    Route::apiResource('warehouses', WarehouseController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen');
+
+    Route::apiResource('stocks', StockController::class)->only(['index', 'show']);
+    Route::apiResource('stocks', StockController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
+
     Route::get('/stock-mutations', [StockMutationController::class, 'index']);
-    Route::post('/stock-mutations', [StockMutationController::class, 'store']);
+    Route::post('/stock-mutations', [StockMutationController::class, 'store'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
 
     // --- Pengiriman & Tracking ---
-    Route::apiResource('delivery-orders', DeliveryOrderController::class);
-    Route::post('/delivery-orders/{deliveryOrder}/track', [DeliveryTrackingController::class, 'store']);
-    Route::post('/delivery-orders/{deliveryOrder}/pod', [DeliveryOrderController::class, 'uploadPod']);
+    Route::apiResource('delivery-orders', DeliveryOrderController::class)->only(['index', 'show']);
+    Route::apiResource('delivery-orders', DeliveryOrderController::class)
+        ->only(['store'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
+    Route::apiResource('delivery-orders', DeliveryOrderController::class)
+        ->only(['update', 'destroy'])
+        ->middleware('role:super_admin,agen,gudang,kurir');
+
+    Route::post('/delivery-orders/{deliveryOrder}/track', [DeliveryTrackingController::class, 'store'])
+        ->middleware('role:super_admin,agen,gudang,kurir');
+    Route::post('/delivery-orders/{deliveryOrder}/pod', [DeliveryOrderController::class, 'uploadPod'])
+        ->middleware('role:super_admin,agen,gudang,kurir');
 
     // --- Piutang & Retur ---
-    Route::apiResource('invoices', InvoiceController::class);
-    Route::apiResource('returns', ReturnItemController::class);
+    Route::apiResource('invoices', InvoiceController::class)->only(['index', 'show']);
+    Route::apiResource('invoices', InvoiceController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen');
+
+    Route::apiResource('returns', ReturnItemController::class)->only(['index', 'show', 'store']);
+    Route::apiResource('returns', ReturnItemController::class)
+        ->only(['update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
 
     // --- Promo & Reward ---
-    Route::apiResource('promos', PromoController::class);
+    Route::apiResource('promos', PromoController::class)->only(['index', 'show']);
+    Route::apiResource('promos', PromoController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen');
 
     // --- Komisi Jaringan ---
     Route::get('/commissions', [CommissionController::class, 'index']);
-    Route::post('/commissions/{commission}/payout', [CommissionController::class, 'payout']);
+    Route::post('/commissions/{commission}/payout', [CommissionController::class, 'payout'])
+        ->middleware('role:super_admin,wilayah,agen');
 
-    // --- Saldo / Wallet ---
+    // --- Saldo / Wallet (selalu ter-scope ke user login sendiri, semua role boleh) ---
     Route::get('/wallet', [WalletController::class, 'show']);
     Route::post('/wallet/topup', [WalletController::class, 'topup']);
     Route::get('/wallet/mutations', [WalletController::class, 'mutations']);
 
     // --- Cashback Barang Bekas ---
-    Route::apiResource('buyback', BuybackController::class);
+    Route::apiResource('buyback', BuybackController::class)->only(['index', 'show', 'store']);
+    Route::apiResource('buyback', BuybackController::class)
+        ->only(['update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
 
     // --- Member Card ---
     Route::get('/member-card', [MemberCardController::class, 'show']);
 
     // --- Notifikasi WA ---
-    Route::post('/notifications/whatsapp/test', [WhatsappNotificationController::class, 'test']);
+    Route::post('/notifications/whatsapp/test', [WhatsappNotificationController::class, 'test'])
+        ->middleware('role:super_admin');
 
-    // --- Payment Gateway Duitku (create transaction butuh auth) ---
+    // --- Payment Gateway Duitku ---
     Route::get('/payment/transactions', [PaymentTransactionController::class, 'index']);
     Route::post('/payment/duitku/create', [DuitkuController::class, 'createTransaction']);
 });

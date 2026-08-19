@@ -9,9 +9,19 @@ use Illuminate\Support\Facades\Validator;
 
 class StockController extends Controller
 {
+    /**
+     * Agen/wilayah hanya lihat stok di gudang miliknya sendiri. Super admin, gudang,
+     * dan role lain (mis. sales/kurir yang butuh cek ketersediaan) lihat semua.
+     */
     public function index(Request $request)
     {
-        return response()->json(Stock::latest()->paginate(20));
+        $query = Stock::with('warehouse', 'product')->latest();
+
+        if ($request->user()->role === 'agen') {
+            $query->whereHas('warehouse', fn ($w) => $w->where('agent_id', $request->user()->id));
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     public function store(Request $request)

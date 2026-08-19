@@ -9,11 +9,28 @@ use Illuminate\Support\Facades\Validator;
 
 class OutletController extends Controller
 {
+    /**
+     * Agen & sales hanya lihat outlet di jaringan mereka sendiri (agen: outlet miliknya,
+     * sales: outlet milik agen atasannya).
+     */
     public function index(Request $request)
     {
-        return response()->json(Outlet::latest()->paginate(20));
+        $query = Outlet::latest();
+        $user = $request->user();
+
+        if ($user->role === 'agen') {
+            $query->where('agent_id', $user->id);
+        } elseif ($user->role === 'sales' && $user->parent_id) {
+            $query->where('agent_id', $user->parent_id);
+        }
+
+        return response()->json($query->paginate(20));
     }
 
+    /**
+     * Sales yang menambahkan outlet baru saat canvasing otomatis terdaftar di bawah
+     * agen atasannya, bukan agen sembarangan dari input.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -30,7 +47,16 @@ class OutletController extends Controller
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
-        $outlet = Outlet::create($validator->validated());
+        $data = $validator->validated();
+        $user = $request->user();
+
+        if ($user->role === 'sales') {
+            $data['agent_id'] = $user->parent_id;
+        } elseif ($user->role === 'agen') {
+            $data['agent_id'] = $user->id;
+        }
+
+        $outlet = Outlet::create($data);
 
         return response()->json($outlet, 201);
     }
