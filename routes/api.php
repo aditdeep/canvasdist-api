@@ -74,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
     Route::post('/auth/push-token', [AuthController::class, 'registerPushToken']);
+    Route::post('/auth/address', [AuthController::class, 'updateAddress']);
 
     // --- Master Data ---
     Route::apiResource('products', ProductController::class)->only(['index', 'show']);

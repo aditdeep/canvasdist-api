@@ -131,4 +131,40 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Token tersimpan']);
     }
+
+    /**
+     * Update alamat pengiriman customer (data ini sebenarnya tersimpan di
+     * Outlet yang otomatis dibuat saat registrasi, bukan langsung di user).
+     * Endpoint khusus ini biar customer bisa self-service edit alamat tanpa
+     * butuh akses admin.
+     */
+    public function updateAddress(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'customer' || !$user->outlet_id) {
+            return response()->json(['message' => 'Endpoint ini khusus akun customer.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address' => 'required|string',
+            'phone' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $user->outlet->update([
+            'address' => $request->address,
+            'phone' => $request->phone ?: $user->outlet->phone,
+        ]);
+
+        $user->update([
+            'address' => $request->address,
+            'phone' => $request->phone ?: $user->phone,
+        ]);
+
+        return response()->json($user->fresh()->load('outlet'));
+    }
 }
