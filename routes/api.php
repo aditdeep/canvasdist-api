@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\Api\ReturnItemController;
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StockMutationController;
 use App\Http\Controllers\Api\UserController;
@@ -54,6 +55,7 @@ Route::get('/public/products', [PublicController::class, 'products']);
 Route::get('/public/products/{product}', [PublicController::class, 'productDetail']);
 Route::get('/public/regions', [PublicController::class, 'regions']);
 Route::post('/public/register', [PublicController::class, 'registerCustomer']);
+Route::get('/public/settings', [SettingsController::class, 'public']);
 
 // --- Tracking publik (tanpa login, dipakai outlet untuk cek status kirim) ---
 Route::get('/track/{doNumber}', [DeliveryTrackingController::class, 'publicTrack']);
@@ -186,6 +188,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Notifikasi WA ---
     Route::post('/notifications/whatsapp/test', [WhatsappNotificationController::class, 'test'])
         ->middleware('role:super_admin');
+
+    // --- Pengaturan Aplikasi (branding, fee platform) ---
+    Route::get('/settings', [SettingsController::class, 'show'])->middleware('role:super_admin');
+    Route::post('/settings', [SettingsController::class, 'update'])->middleware('role:super_admin');
 
     // --- Payment Gateway Duitku ---
     Route::get('/payment/transactions', [PaymentTransactionController::class, 'index']);

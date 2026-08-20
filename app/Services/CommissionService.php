@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Commission;
 use App\Models\Order;
+use App\Models\Settings;
 use App\Models\User;
 
 class CommissionService
@@ -22,9 +23,15 @@ class CommissionService
      * Hitung & catat komisi berjenjang untuk sebuah order yang sudah selesai.
      * Naik dari agent langsung (reseller) ke atasannya (agen) ke atasannya lagi (wilayah).
      * Komisi dibuat dengan status 'pending' — cair ke saldo lewat CommissionController@payout.
+     *
+     * Sekaligus catat fee platform (bagi hasil ke pemilik sistem) kalau
+     * dikonfigurasi di Settings — persentase dari total order, terpisah dari
+     * komisi jaringan di atas, tidak mengurangi jatah agen/wilayah/reseller.
      */
     public function generateForOrder(Order $order): void
     {
+        $this->generatePlatformFee($order);
+
         if (!$order->agent_id) {
             return;
         }
@@ -48,6 +55,36 @@ class CommissionService
                 $current = $current->parent;
             }
         }
+    }
+
+    protected function generatePlatformFee(Order $order): void
+    {
+        $settings = Settings::current();
+        $percentage = (float) $settings->platform_fee_percent;
+
+        if ($percentage <= 0 || !$settings->platform_owner_user_id) {
+            return;
+        }
+
+        $owner = User::find($settings->platform_owner_user_id);
+        if (!$owner) {
+            return;
+        }
+
+        $amount = round((float) $order->total * ($percentage / 100), 2);
+
+        if ($amount <= 0) {
+            return;
+        }
+
+        Commission::create([
+            'user_id' => $owner->id,
+            'source_order_id' => $order->id,
+            'level' => 'platform',
+            'percentage' => $percentage,
+            'amount' => $amount,
+            'status' => 'pending',
+        ]);
     }
 
     protected function recordCommission(User $user, Order $order, string $level): void
