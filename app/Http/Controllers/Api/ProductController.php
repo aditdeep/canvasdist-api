@@ -33,9 +33,7 @@ class ProductController extends Controller
         $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description']);
 
         if ($request->hasFile('photo')) {
-            $data['photo_path'] = \Illuminate\Support\Facades\Storage::url(
-                $request->file('photo')->store('products', 'public')
-            );
+            $data['photo_path'] = \App\Support\FileUrl::relative($request->file('photo')->store('products', 'public'));
         }
 
         $product = Product::create($data);
@@ -53,9 +51,7 @@ class ProductController extends Controller
         $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description', 'is_active']);
 
         if ($request->hasFile('photo')) {
-            $data['photo_path'] = \Illuminate\Support\Facades\Storage::url(
-                $request->file('photo')->store('products', 'public')
-            );
+            $data['photo_path'] = \App\Support\FileUrl::relative($request->file('photo')->store('products', 'public'));
         }
 
         $product->update($data);

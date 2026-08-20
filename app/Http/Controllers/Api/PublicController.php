@@ -45,15 +45,61 @@ class PublicController extends Controller
         return response()->json($products);
     }
 
-    public function productDetail(Product $product)
+    public function productDetail(Request $request, Product $product)
     {
         if (!$product->is_active) {
             return response()->json(['message' => 'Produk tidak ditemukan'], 404);
         }
 
-        $product->display_price = $product->priceForLevel('reseller');
+        $basePrice = (float) $product->priceForLevel('reseller');
+        $promo = \App\Models\Promo::where('is_active', true)
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->where(function ($q) {
+                $q->whereNull('target_level')->orWhere('target_level', 'reseller');
+            })
+            ->orderByDesc('value')
+            ->first();
 
-        return response()->json($product);
+        $discountedPrice = $basePrice;
+        $promoLabel = null;
+
+        if ($promo) {
+            if ($promo->type === 'discount_percent') {
+                $discountedPrice = $basePrice - ($basePrice * ((float) $promo->value / 100));
+                $promoLabel = $promo->name . ' -' . rtrim(rtrim(number_format((float) $promo->value, 1), '0'), '.') . '%';
+            } elseif (in_array($promo->type, ['discount_fixed', 'tiered'])) {
+                $discountedPrice = max(0, $basePrice - (float) $promo->value);
+                $promoLabel = $promo->name;
+            }
+        }
+
+        $product->display_price = $basePrice;
+        $product->discounted_price = round($discountedPrice, 2);
+        $product->promo_label = $promoLabel;
+
+        // Ongkir: kalau user login sebagai customer & sudah punya agen, pakai
+        // shipping_fee milik agen itu. Route ini publik (tanpa middleware
+        // auth:sanctum) jadi resolve user manual dari token kalau ada, tanpa
+        // memaksa route ini wajib login.
+        $shippingFee = null;
+        $user = auth('sanctum')->user();
+        if ($user && $user->role === 'customer' && $user->outlet?->agent) {
+            $shippingFee = (float) $user->outlet->agent->shipping_fee;
+        }
+        $product->shipping_fee = $shippingFee;
+
+        $related = Product::where('is_active', true)
+            ->where('id', '!=', $product->id)
+            ->when($product->category, fn ($q) => $q->where('category', $product->category))
+            ->limit(4)
+            ->get()
+            ->map(function ($p) {
+                $p->display_price = $p->priceForLevel('reseller');
+                return $p;
+            });
+
+        return response()->json(['product' => $product, 'related' => $related]);
     }
 
     /**

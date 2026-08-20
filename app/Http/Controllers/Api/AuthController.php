@@ -80,9 +80,7 @@ class AuthController extends Controller
         $data = $request->only(['name', 'phone', 'address']);
 
         if ($request->hasFile('avatar')) {
-            $data['avatar_path'] = \Illuminate\Support\Facades\Storage::url(
-                $request->file('avatar')->store('avatars', 'public')
-            );
+            $data['avatar_path'] = \App\Support\FileUrl::relative($request->file('avatar')->store('avatars', 'public'));
         }
 
         $user->update($data);

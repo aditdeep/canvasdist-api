@@ -40,7 +40,7 @@ class VisitController extends Controller
         }
 
         $photoPath = $request->hasFile('photo')
-            ? \Illuminate\Support\Facades\Storage::url($request->file('photo')->store('visits', 'public'))
+            ? \App\Support\FileUrl::relative($request->file('photo')->store('visits', 'public'))
             : null;
 
         $visit = Visit::create([

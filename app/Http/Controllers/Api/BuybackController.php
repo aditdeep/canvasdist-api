@@ -38,7 +38,7 @@ class BuybackController extends Controller
         }
 
         $photoPath = $request->hasFile('photo')
-            ? \Illuminate\Support\Facades\Storage::url($request->file('photo')->store('buyback', 'public'))
+            ? \App\Support\FileUrl::relative($request->file('photo')->store('buyback', 'public'))
             : null;
 
         $buyback = Buyback::create([

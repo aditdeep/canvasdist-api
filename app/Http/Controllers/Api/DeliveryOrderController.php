@@ -124,8 +124,8 @@ class DeliveryOrderController extends Controller
             : null;
 
         $deliveryOrder->update([
-            'pod_photo_path' => \Illuminate\Support\Facades\Storage::url($photoPath),
-            'pod_signature_path' => $signaturePath ? \Illuminate\Support\Facades\Storage::url($signaturePath) : null,
+            'pod_photo_path' => \App\Support\FileUrl::relative($photoPath),
+            'pod_signature_path' => $signaturePath ? \App\Support\FileUrl::relative($signaturePath) : null,
             'status' => 'selesai',
             'delivered_at' => now(),
         ]);
