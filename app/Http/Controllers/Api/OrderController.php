@@ -132,7 +132,10 @@ class OrderController extends Controller
     }
 
     /**
-     * Approve order: cek stok (disederhanakan), lanjutkan ke gudang untuk packing.
+     * Approve order: kurangi stok gudang milik agen terkait, lanjutkan ke
+     * gudang untuk packing. Best-effort — kalau data stok belum lengkap
+     * (gudang belum diisi/qty belum di-set), approval tetap jalan supaya
+     * nggak macetin operasional, tapi mutasi stok dicatat untuk yang tersedia.
      * Saat order berstatus 'completed', baru komisi jaringan dihitung — lihat markCompleted().
      */
     public function approve(Order $order)
@@ -141,9 +144,35 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order tidak dalam status pending'], 422);
         }
 
-        $order->update(['status' => 'approved']);
+        DB::transaction(function () use ($order) {
+            $warehouse = $order->agent_id
+                ? \App\Models\Warehouse::where('agent_id', $order->agent_id)->first()
+                : null;
 
-        return response()->json($order);
+            if ($warehouse) {
+                foreach ($order->items()->with('product')->get() as $item) {
+                    $stock = \App\Models\Stock::firstOrCreate(
+                        ['warehouse_id' => $warehouse->id, 'product_id' => $item->product_id],
+                        ['qty' => 0]
+                    );
+
+                    $stock->decrement('qty', $item->qty);
+
+                    \App\Models\StockMutation::create([
+                        'from_warehouse_id' => $warehouse->id,
+                        'to_warehouse_id' => null,
+                        'product_id' => $item->product_id,
+                        'qty' => $item->qty,
+                        'type' => 'out',
+                        'reference' => $order->order_no,
+                    ]);
+                }
+            }
+
+            $order->update(['status' => 'approved']);
+        });
+
+        return response()->json($order->fresh());
     }
 
     /**

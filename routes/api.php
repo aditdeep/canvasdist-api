@@ -213,4 +213,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Payment Gateway Duitku ---
     Route::get('/payment/transactions', [PaymentTransactionController::class, 'index']);
     Route::post('/payment/duitku/create', [DuitkuController::class, 'createTransaction']);
+    Route::post('/payment/duitku/check-status', [DuitkuController::class, 'checkStatus']);
 });

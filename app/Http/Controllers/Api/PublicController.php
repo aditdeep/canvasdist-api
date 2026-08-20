@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Region;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\PromoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -19,6 +20,30 @@ use Illuminate\Support\Facades\Validator;
  */
 class PublicController extends Controller
 {
+    public function __construct(protected PromoService $promoService) {}
+
+    /**
+     * Terapkan promo aktif (kalau ada) ke sebuah produk untuk ditampilkan di
+     * storefront — dipakai bareng oleh products() (grid) dan productDetail(),
+     * sekaligus jadi acuan yang sama dengan OrderController::store supaya
+     * harga yang tampil = harga yang ditagih saat checkout.
+     */
+    protected function applyPromoDisplay(Product $product): Product
+    {
+        $basePrice = (float) $product->priceForLevel('reseller');
+        $promo = $this->promoService->bestPromoForDisplay('reseller');
+
+        $discountPerUnit = $promo ? $this->promoService->discountPerUnit($promo, $basePrice) : 0;
+
+        $product->display_price = $basePrice;
+        $product->discounted_price = round($basePrice - $discountPerUnit, 2);
+        $product->promo_label = $promo && $discountPerUnit > 0
+            ? $promo->name . ($promo->type === 'discount_percent' ? ' -' . rtrim(rtrim(number_format((float) $promo->value, 1), '0'), '.') . '%' : '')
+            : null;
+
+        return $product;
+    }
+
     /**
      * Katalog produk untuk storefront. Harga yang ditampilkan pakai level
      * 'reseller' (harga retail-facing), bukan harga internal agen/wilayah.
@@ -39,10 +64,7 @@ class PublicController extends Controller
 
         $products = $query->paginate(20);
 
-        $products->getCollection()->transform(function ($product) {
-            $product->display_price = $product->priceForLevel('reseller');
-            return $product;
-        });
+        $products->getCollection()->transform(fn ($product) => $this->applyPromoDisplay($product));
 
         return response()->json($products);
     }
@@ -53,32 +75,7 @@ class PublicController extends Controller
             return response()->json(['message' => 'Produk tidak ditemukan'], 404);
         }
 
-        $basePrice = (float) $product->priceForLevel('reseller');
-        $promo = \App\Models\Promo::where('is_active', true)
-            ->whereDate('start_date', '<=', now())
-            ->whereDate('end_date', '>=', now())
-            ->where(function ($q) {
-                $q->whereNull('target_level')->orWhere('target_level', 'reseller');
-            })
-            ->orderByDesc('value')
-            ->first();
-
-        $discountedPrice = $basePrice;
-        $promoLabel = null;
-
-        if ($promo) {
-            if ($promo->type === 'discount_percent') {
-                $discountedPrice = $basePrice - ($basePrice * ((float) $promo->value / 100));
-                $promoLabel = $promo->name . ' -' . rtrim(rtrim(number_format((float) $promo->value, 1), '0'), '.') . '%';
-            } elseif (in_array($promo->type, ['discount_fixed', 'tiered'])) {
-                $discountedPrice = max(0, $basePrice - (float) $promo->value);
-                $promoLabel = $promo->name;
-            }
-        }
-
-        $product->display_price = $basePrice;
-        $product->discounted_price = round($discountedPrice, 2);
-        $product->promo_label = $promoLabel;
+        $this->applyPromoDisplay($product);
 
         // Ongkir: kalau user login sebagai customer & sudah punya agen, pakai
         // shipping_fee milik agen itu. Route ini publik (tanpa middleware
@@ -96,10 +93,7 @@ class PublicController extends Controller
             ->when($product->category, fn ($q) => $q->where('category', $product->category))
             ->limit(4)
             ->get()
-            ->map(function ($p) {
-                $p->display_price = $p->priceForLevel('reseller');
-                return $p;
-            });
+            ->map(fn ($p) => $this->applyPromoDisplay($p));
 
         return response()->json(['product' => $product, 'related' => $related]);
     }

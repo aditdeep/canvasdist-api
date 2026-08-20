@@ -78,6 +78,25 @@ class DuitkuService
     }
 
     /**
+     * Cek status transaksi langsung ke Duitku (bukan nunggu callback).
+     * Dipakai sebagai fallback saat user kembali dari halaman pembayaran —
+     * callback webhook bisa telat/gagal terkirim (mis. gara-gara konfigurasi
+     * server), jadi kita verifikasi aktif juga di sisi kita.
+     */
+    public function checkTransactionStatus(string $reference): array
+    {
+        $signature = md5($this->merchantCode . $reference . $this->apiKey);
+
+        $response = Http::post("{$this->baseUrl}/transactionStatus", [
+            'merchantCode' => $this->merchantCode,
+            'merchantOrderId' => $reference,
+            'signature' => $signature,
+        ]);
+
+        return $response->json() ?? [];
+    }
+
+    /**
      * Ambil daftar metode pembayaran yang aktif untuk project ini beserta biayanya,
      * supaya user bisa memilih channel (VA/QRIS/e-wallet) sebelum bayar, bukan
      * dipaksa satu channel tetap.

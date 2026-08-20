@@ -122,9 +122,70 @@ class DuitkuController extends Controller
     public function returnUrl(Request $request)
     {
         // User diarahkan ke sini setelah selesai bayar di halaman Duitku.
-        // Redirect ke halaman frontend yang sesuai (mis. halaman wallet).
-        $reference = $request->query('merchantOrderId');
+        $reference = $request->query('merchantOrderId') ?? $request->query('reference');
+
+        if ($reference) {
+            $this->syncTransactionStatus($reference);
+        }
 
         return response()->json(['message' => 'Pembayaran diproses, cek status saldo/order.', 'reference' => $reference]);
+    }
+
+    /**
+     * Cek + sinkronkan status transaksi aktif ke Duitku. Dipanggil dari
+     * returnUrl (redirect setelah bayar) dan bisa juga dipanggil manual dari
+     * frontend (polling) sebagai fallback kalau callback webhook telat/gagal
+     * — umum terjadi di server dengan firewall/DNS yang belum matang.
+     */
+    public function checkStatus(Request $request)
+    {
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'reference' => 'required|string|exists:payment_transactions,reference',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $transaction = $this->syncTransactionStatus($request->reference);
+
+        return response()->json($transaction);
+    }
+
+    protected function syncTransactionStatus(string $reference): ?PaymentTransaction
+    {
+        $transaction = PaymentTransaction::where('reference', $reference)->first();
+
+        if (!$transaction || $transaction->status === 'success') {
+            return $transaction;
+        }
+
+        $duitku = app(\App\Services\DuitkuService::class);
+        $result = $duitku->checkTransactionStatus($reference);
+
+        // statusCode Duitku: '00' = sukses, '01' = pending, selain itu = gagal/expired
+        $statusCode = $result['statusCode'] ?? null;
+
+        if ($statusCode === '00') {
+            $transaction->update(['status' => 'success', 'payload' => $result]);
+
+            if ($transaction->wallet_id) {
+                $this->walletService->credit(
+                    $transaction->wallet->fresh(),
+                    (float) $transaction->amount,
+                    'topup',
+                    $transaction->reference,
+                    'Top up saldo via Duitku'
+                );
+            }
+
+            if ($transaction->order_id) {
+                $transaction->order()->update(['payment_status' => 'paid']);
+            }
+        } elseif ($statusCode && $statusCode !== '01') {
+            $transaction->update(['status' => 'failed', 'payload' => $result]);
+        }
+
+        return $transaction->fresh();
     }
 }
