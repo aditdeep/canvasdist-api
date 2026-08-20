@@ -21,6 +21,9 @@ class SettingsController extends Controller
         return response()->json([
             'app_name' => $settings->app_name,
             'logo_path' => $settings->logo_path,
+            'owner_name' => $settings->owner_name,
+            'owner_email' => $settings->owner_email,
+            'owner_phone' => $settings->owner_phone,
         ]);
     }
 
