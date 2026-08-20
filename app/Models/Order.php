@@ -21,5 +21,6 @@ class Order extends Model
     public function invoice() { return $this->hasOne(Invoice::class); }
     public function commissions() { return $this->hasMany(Commission::class, 'source_order_id'); }
     public function returns() { return $this->hasMany(ReturnItem::class); }
+    public function paymentTransactions() { return $this->hasMany(PaymentTransaction::class); }
 
 }
