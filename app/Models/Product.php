@@ -10,7 +10,7 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'sku', 'category', 'unit', 'base_price', 'is_active'];
+    protected $fillable = ['name', 'sku', 'category', 'unit', 'base_price', 'photo_path', 'description', 'is_active'];
     protected $casts = ['base_price' => 'decimal:2', 'is_active' => 'boolean'];
 
     public function prices() { return $this->hasMany(ProductPrice::class); }

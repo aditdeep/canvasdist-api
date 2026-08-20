@@ -22,13 +22,23 @@ class ProductController extends Controller
             'category' => 'nullable|string',
             'unit' => 'nullable|string',
             'base_price' => 'required|numeric|min:0',
+            'description' => 'nullable|string',
+            'photo' => 'nullable|image|max:3072',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
-        $product = Product::create($validator->validated());
+        $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description']);
+
+        if ($request->hasFile('photo')) {
+            $data['photo_path'] = \Illuminate\Support\Facades\Storage::url(
+                $request->file('photo')->store('products', 'public')
+            );
+        }
+
+        $product = Product::create($data);
 
         return response()->json($product, 201);
     }
@@ -40,7 +50,15 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        $product->update($request->all());
+        $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description', 'is_active']);
+
+        if ($request->hasFile('photo')) {
+            $data['photo_path'] = \Illuminate\Support\Facades\Storage::url(
+                $request->file('photo')->store('products', 'public')
+            );
+        }
+
+        $product->update($data);
 
         return response()->json($product);
     }
