@@ -10,10 +10,11 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'sku', 'category', 'unit', 'base_price', 'photo_path', 'description', 'is_active'];
+    protected $fillable = ['name', 'sku', 'category', 'category_id', 'unit', 'base_price', 'photo_path', 'description', 'is_active'];
     protected $casts = ['base_price' => 'decimal:2', 'is_active' => 'boolean'];
 
     public function prices() { return $this->hasMany(ProductPrice::class); }
+    public function categoryModel() { return $this->belongsTo(Category::class, 'category_id'); }
 
     public function priceForLevel(string $level): float
     {

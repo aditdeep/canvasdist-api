@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BannerController;
 use App\Http\Controllers\Api\BuybackController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CommissionController;
 use App\Http\Controllers\Api\DeliveryOrderController;
 use App\Http\Controllers\Api\DeliveryLegController;
@@ -56,6 +58,8 @@ Route::get('/public/products/{product}', [PublicController::class, 'productDetai
 Route::get('/public/regions', [PublicController::class, 'regions']);
 Route::post('/public/register', [PublicController::class, 'registerCustomer']);
 Route::get('/public/settings', [SettingsController::class, 'public']);
+Route::get('/public/categories', [PublicController::class, 'categories']);
+Route::get('/public/banners', [PublicController::class, 'banners']);
 
 // --- Tracking publik (tanpa login, dipakai outlet untuk cek status kirim) ---
 Route::get('/track/{doNumber}', [DeliveryTrackingController::class, 'publicTrack']);
@@ -76,6 +80,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('products', ProductController::class)
         ->only(['store', 'update', 'destroy'])
         ->middleware('role:super_admin,wilayah,agen');
+
+    Route::apiResource('categories', CategoryController::class)->only(['index', 'show']);
+    Route::apiResource('categories', CategoryController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin,wilayah,agen');
+
+    Route::apiResource('banners', BannerController::class)->only(['index', 'show']);
+    Route::apiResource('banners', BannerController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->middleware('role:super_admin');
 
     Route::apiResource('outlets', OutletController::class)->only(['index', 'show']);
     Route::apiResource('outlets', OutletController::class)

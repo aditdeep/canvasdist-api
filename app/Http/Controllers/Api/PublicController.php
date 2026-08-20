@@ -25,9 +25,11 @@ class PublicController extends Controller
      */
     public function products(Request $request)
     {
-        $query = Product::where('is_active', true)->with('prices');
+        $query = Product::where('is_active', true)->with('prices', 'categoryModel');
 
-        if ($request->filled('category')) {
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        } elseif ($request->filled('category')) {
             $query->where('category', $request->category);
         }
 
@@ -100,6 +102,26 @@ class PublicController extends Controller
             });
 
         return response()->json(['product' => $product, 'related' => $related]);
+    }
+
+    /**
+     * Daftar kategori aktif (dengan gambar) untuk ditampilkan di storefront.
+     */
+    public function categories()
+    {
+        return response()->json(
+            \App\Models\Category::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
+        );
+    }
+
+    /**
+     * Banner hero slider aktif untuk storefront.
+     */
+    public function banners()
+    {
+        return response()->json(
+            \App\Models\Banner::where('is_active', true)->orderBy('sort_order')->get()
+        );
     }
 
     /**

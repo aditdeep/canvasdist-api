@@ -30,7 +30,7 @@ class ProductController extends Controller
             return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description']);
+        $data = $request->only(['name', 'sku', 'category', 'category_id', 'unit', 'base_price', 'description']);
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = \App\Support\FileUrl::relative($request->file('photo')->store('products', 'public'));
@@ -48,7 +48,7 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        $data = $request->only(['name', 'sku', 'category', 'unit', 'base_price', 'description', 'is_active']);
+        $data = $request->only(['name', 'sku', 'category', 'category_id', 'unit', 'base_price', 'description', 'is_active']);
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = \App\Support\FileUrl::relative($request->file('photo')->store('products', 'public'));
