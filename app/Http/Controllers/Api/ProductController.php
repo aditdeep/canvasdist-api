@@ -11,7 +11,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        return response()->json(Product::latest()->paginate(20));
+        return response()->json(Product::with('categoryModel')->latest()->paginate(20));
     }
 
     public function store(Request $request)
