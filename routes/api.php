@@ -114,6 +114,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('role:super_admin,wilayah,agen');
     Route::post('/orders/{order}/complete', [OrderController::class, 'markCompleted'])
         ->middleware('role:super_admin,wilayah,agen,gudang,kurir');
+    Route::post('/orders/{order}/complete-pickup', [OrderController::class, 'completePickup'])
+        ->middleware('role:super_admin,wilayah,agen,gudang');
 
     // --- Inventory ---
     Route::apiResource('warehouses', WarehouseController::class)->only(['index', 'show']);

@@ -10,7 +10,7 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['order_no', 'visit_id', 'outlet_id', 'agent_id', 'status', 'payment_method', 'fulfillment_type', 'is_storefront_order', 'subtotal', 'discount_total', 'total'];
+    protected $fillable = ['order_no', 'visit_id', 'outlet_id', 'agent_id', 'status', 'payment_method', 'payment_status', 'fulfillment_type', 'is_storefront_order', 'subtotal', 'discount_total', 'total'];
     protected $casts = ['subtotal' => 'decimal:2', 'discount_total' => 'decimal:2', 'total' => 'decimal:2'];
 
     public function visit() { return $this->belongsTo(Visit::class); }

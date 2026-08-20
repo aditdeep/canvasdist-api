@@ -13,14 +13,59 @@ class DuitkuController extends Controller
     public function __construct(protected WalletService $walletService) {}
 
     /**
-     * Endpoint generik untuk mulai transaksi pembayaran order (bukan top-up saldo).
-     * Untuk top-up saldo pakai WalletController@topup.
+     * Mulai transaksi pembayaran untuk sebuah order (bukan top-up saldo).
+     * Dipakai storefront customer buat "Bayar Sekarang" saat checkout, atau
+     * bayar belakangan dari halaman Pesanan kalau tadinya pilih COD.
      */
     public function createTransaction(Request $request)
     {
-        // Alur sama seperti WalletController@topup, hanya beda field order_id vs wallet_id.
-        // Implementasi lengkap menyusul sesuai kebutuhan checkout order non-saldo.
-        return response()->json(['message' => 'Gunakan /api/wallet/topup untuk saldo, atau lengkapi endpoint ini untuk pembayaran order langsung.'], 501);
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'order_id' => 'required|exists:orders,id',
+            'payment_method' => 'nullable|string|max:2',
+            'return_url' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $order = \App\Models\Order::findOrFail($request->order_id);
+
+        // Hanya pemilik order (customer-nya sendiri) yang boleh bayar order ini
+        if ($order->outlet_id !== $request->user()->outlet_id) {
+            return response()->json(['message' => 'Order ini bukan milik kamu'], 403);
+        }
+
+        if ($order->payment_status === 'paid') {
+            return response()->json(['message' => 'Order ini sudah lunas'], 422);
+        }
+
+        $reference = 'ORDPAY-' . now()->format('YmdHis') . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+
+        $transaction = PaymentTransaction::create([
+            'reference' => $reference,
+            'gateway' => 'duitku',
+            'order_id' => $order->id,
+            'amount' => $order->total,
+            'status' => 'pending',
+        ]);
+
+        $duitku = app(\App\Services\DuitkuService::class);
+        $duitkuResponse = $duitku->createTransaction(
+            reference: $reference,
+            amount: (float) $order->total,
+            customerName: $request->user()->name,
+            customerEmail: $request->user()->email,
+            paymentMethod: $request->payment_method ?: 'BC',
+            returnUrl: $request->return_url,
+        );
+
+        $transaction->update(['payload' => $duitkuResponse]);
+
+        return response()->json([
+            'transaction' => $transaction,
+            'payment_url' => $duitkuResponse['paymentUrl'] ?? null,
+        ]);
     }
 
     /**
@@ -61,7 +106,10 @@ class DuitkuController extends Controller
                 );
             }
 
-            // TODO: kalau ini pembayaran order (order_id ada), update status order/invoice di sini
+            // Kalau ini pembayaran order, tandai order lunas
+            if ($transaction->order_id) {
+                $transaction->order()->update(['payment_status' => 'paid']);
+            }
         } else {
             $transaction->update(['status' => 'failed', 'payload' => $payload]);
         }

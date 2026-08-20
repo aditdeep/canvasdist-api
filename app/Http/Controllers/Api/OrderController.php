@@ -162,6 +162,24 @@ class OrderController extends Controller
         return response()->json($order->load('commissions'));
     }
 
+    /**
+     * Selesaikan order fulfillment_type=pickup — dipakai agen/gudang saat
+     * customer sudah datang ambil barang di outlet, tanpa lewat proses
+     * kurir/DeliveryOrder sama sekali (beda dari alur "diantar").
+     */
+    public function completePickup(Order $order)
+    {
+        if ($order->fulfillment_type !== 'pickup') {
+            return response()->json(['message' => 'Order ini bukan tipe ambil sendiri'], 422);
+        }
+
+        if ($order->status !== 'approved') {
+            return response()->json(['message' => 'Order harus berstatus approved dulu sebelum ditandai diambil'], 422);
+        }
+
+        return $this->markCompleted($order);
+    }
+
     public function destroy(Order $order)
     {
         if ($order->status !== 'pending') {
