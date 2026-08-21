@@ -208,9 +208,19 @@ class OrderController extends Controller
         }
 
         $order->update(['status' => 'completed']);
-        $this->commissionService->generateForOrder($order);
 
-        return response()->json($order->load('commissions'));
+        // Perhitungan komisi sengaja dipisah dengan try/catch — order HARUS
+        // tetap berhasil ditandai selesai (mis. POD kurir tersimpan) walau
+        // perhitungan komisi gagal karena sebab apapun (data belum lengkap,
+        // migration tertinggal, dll). Komisi yang gagal bisa dihitung ulang
+        // manual kapan saja tanpa mengulang proses pengiriman.
+        try {
+            $this->commissionService->generateForOrder($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal generate komisi untuk order ' . $order->order_no . ': ' . $e->getMessage());
+        }
+
+        return response()->json($order->fresh()->load('commissions'));
     }
 
     /**
