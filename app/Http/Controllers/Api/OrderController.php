@@ -22,7 +22,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with(['outlet', 'items.product', 'deliveryOrder', 'paymentTransactions'])->latest();
+        $query = Order::with(['outlet', 'agent', 'items.product', 'deliveryOrder', 'paymentTransactions'])->latest();
 
         if ($request->user()->isRole('agen', 'wilayah')) {
             $query->where('agent_id', $request->user()->id);
