@@ -81,6 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('products', ProductController::class)
         ->only(['store', 'update', 'destroy'])
         ->middleware('role:super_admin,wilayah,agen');
+    Route::put('/products/{product}/prices', [ProductController::class, 'updatePrices'])
+        ->middleware('role:super_admin,wilayah,agen');
 
     Route::apiResource('categories', CategoryController::class)->only(['index', 'show']);
     Route::apiResource('categories', CategoryController::class)

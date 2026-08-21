@@ -8,13 +8,18 @@ use App\Models\Order;
 use App\Http\Controllers\Api\OrderController;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class DeliveryOrderController extends Controller
 {
-    public function __construct(protected OrderController $orderController, protected NotificationService $notifications) {}
+    public function __construct(
+        protected OrderController $orderController,
+        protected NotificationService $notifications,
+        protected WalletService $walletService
+    ) {}
 
     public function index(Request $request)
     {
@@ -142,6 +147,62 @@ class DeliveryOrderController extends Controller
 
         $this->orderController->markCompleted($deliveryOrder->order);
 
+        // Bayar kurir — sengaja dijaga try/catch, sama seperti komisi
+        // jaringan, supaya gagal bayar kurir tidak menggagalkan penyelesaian
+        // pengiriman itu sendiri.
+        try {
+            $this->payCourier($deliveryOrder);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal bayar kurir untuk DO ' . $deliveryOrder->do_number . ': ' . $e->getMessage());
+        }
+
         return response()->json($deliveryOrder->fresh()->load('order'));
+    }
+
+    /**
+     * Bayar kurir setelah pengiriman selesai — dua komponen, bisa dipakai
+     * salah satu atau digabung sekaligus sesuai kebijakan agen:
+     * 1. Nominal tetap per pengiriman (courier_fee_flat milik agen)
+     * 2. Persentase dari ongkir order tersebut (courier_fee_percent milik agen)
+     */
+    protected function payCourier(DeliveryOrder $deliveryOrder): void
+    {
+        if (!$deliveryOrder->courier_id) {
+            return;
+        }
+
+        $order = $deliveryOrder->order;
+        $agent = $order->agent_id ? User::find($order->agent_id) : null;
+
+        if (!$agent) {
+            return;
+        }
+
+        $flatFee = (float) $agent->courier_fee_flat;
+        $percentFee = (float) $agent->courier_fee_percent > 0
+            ? round((float) $order->shipping_fee * ((float) $agent->courier_fee_percent / 100), 2)
+            : 0;
+
+        $totalFee = $flatFee + $percentFee;
+
+        if ($totalFee <= 0) {
+            return;
+        }
+
+        $courier = User::find($deliveryOrder->courier_id);
+        if (!$courier) {
+            return;
+        }
+
+        $wallet = \App\Models\Wallet::firstOrCreate(['user_id' => $courier->id], ['balance' => 0]);
+
+        $this->walletService->credit(
+            $wallet,
+            $totalFee,
+            'delivery_fee',
+            $deliveryOrder->do_number,
+            "Ongkos kirim {$deliveryOrder->do_number}" .
+                ($flatFee > 0 && $percentFee > 0 ? " (tetap Rp" . number_format($flatFee, 0, ',', '.') . " + {$agent->courier_fee_percent}% ongkir)" : '')
+        );
     }
 }

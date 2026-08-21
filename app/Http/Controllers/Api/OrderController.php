@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\CommissionService;
 use App\Services\PromoService;
 use Illuminate\Http\Request;
@@ -78,14 +79,22 @@ class OrderController extends Controller
                 ? ($this->resolveFulfillingAgent($request->items, $homeAgentId) ?? $homeAgentId)
                 : $request->agent_id;
 
+            $fulfillmentType = $request->fulfillment_type ?? 'delivery';
+            $shippingFee = 0;
+            if ($isCustomer && $fulfillmentType === 'delivery' && $agentId) {
+                $agentForShipping = User::find($agentId);
+                $shippingFee = $agentForShipping ? (float) $agentForShipping->shipping_fee : 0;
+            }
+
             $order = Order::create([
                 'order_no' => 'ORD-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6)),
                 'visit_id' => $request->visit_id,
                 'outlet_id' => $outletId,
                 'agent_id' => $agentId,
                 'payment_method' => $request->payment_method ?? 'cash',
-                'fulfillment_type' => $request->fulfillment_type ?? 'delivery',
+                'fulfillment_type' => $fulfillmentType,
                 'is_storefront_order' => $isCustomer,
+                'shipping_fee' => $shippingFee,
                 'status' => 'pending',
             ]);
 
@@ -118,7 +127,7 @@ class OrderController extends Controller
             $order->update([
                 'subtotal' => $subtotal,
                 'discount_total' => $discountTotal,
-                'total' => $subtotal - $discountTotal,
+                'total' => $subtotal - $discountTotal + $order->shipping_fee,
             ]);
 
             return $order;

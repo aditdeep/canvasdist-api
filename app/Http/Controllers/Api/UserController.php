@@ -56,7 +56,10 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $user->update($request->only(['name', 'phone', 'role', 'parent_id', 'region_code', 'is_active', 'address']));
+        $user->update($request->only([
+            'name', 'phone', 'role', 'parent_id', 'region_code', 'is_active', 'address',
+            'shipping_fee', 'courier_fee_flat', 'courier_fee_percent',
+        ]));
 
         return response()->json($user);
     }
