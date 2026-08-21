@@ -68,7 +68,15 @@ class OrderController extends Controller
 
         $order = DB::transaction(function () use ($request, $isCustomer) {
             $outletId = $isCustomer ? $request->user()->outlet_id : $request->outlet_id;
-            $agentId = $isCustomer ? $request->user()->outlet->agent_id : $request->agent_id;
+
+            // Untuk order storefront customer: JANGAN asal pakai agen wilayah
+            // tempat tinggal customer (bisa keliru kalau produk yang dibeli
+            // ternyata cuma ada stoknya di gudang agen lain). Cari agen yang
+            // benar-benar punya stok cukup untuk SEMUA barang di order ini.
+            $homeAgentId = $isCustomer ? $request->user()->outlet->agent_id : null;
+            $agentId = $isCustomer
+                ? ($this->resolveFulfillingAgent($request->items, $homeAgentId) ?? $homeAgentId)
+                : $request->agent_id;
 
             $order = Order::create([
                 'order_no' => 'ORD-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6)),
@@ -124,11 +132,25 @@ class OrderController extends Controller
         return response()->json($order->load('items.product', 'outlet', 'agent', 'deliveryOrder', 'invoice'));
     }
 
+    /**
+     * Update order. Termasuk reassign agent_id manual — dipakai admin untuk
+     * membetulkan order yang ter-assign ke agen yang salah (mis. sebelum
+     * fix auto-routing berdasarkan stok, atau kasus barang tersebar di
+     * beberapa gudang berbeda yang butuh keputusan manual).
+     */
     public function update(Request $request, Order $order)
     {
-        $order->update($request->only(['status', 'payment_method']));
+        $data = $request->only(['status', 'payment_method']);
 
-        return response()->json($order);
+        // Reassign agen cuma boleh oleh Super Admin/Wilayah, biar nggak
+        // sembarang role (termasuk customer) bisa memindah-mindahkan order.
+        if ($request->filled('agent_id') && $request->user()->isRole('super_admin', 'wilayah')) {
+            $data['agent_id'] = $request->agent_id;
+        }
+
+        $order->update($data);
+
+        return response()->json($order->fresh()->load('agent'));
     }
 
     /**
@@ -207,6 +229,56 @@ class OrderController extends Controller
         }
 
         return $this->markCompleted($order);
+    }
+
+    /**
+     * Cari agen yang gudangnya benar-benar punya stok cukup untuk SEMUA item
+     * di order ini — supaya order tidak "nyasar" ke agen yang kebetulan
+     * dekat wilayah customer tapi tidak punya barangnya sama sekali (produk
+     * bersifat katalog global, stok fisiknya tersebar per gudang per agen).
+     *
+     * Kalau tidak ada satu agen pun yang bisa penuhi semua item sekaligus
+     * (mis. barang tersebar di gudang berbeda-beda), kembalikan null supaya
+     * pemanggil jatuh balik ke agen wilayah customer (perlu di-assign ulang
+     * manual oleh admin kalau ternyata salah juga).
+     */
+    protected function resolveFulfillingAgent(array $items, ?int $fallbackAgentId): ?int
+    {
+        $candidateAgentSets = [];
+
+        foreach ($items as $item) {
+            $warehouseIds = \App\Models\Stock::where('product_id', $item['product_id'])
+                ->where('qty', '>=', $item['qty'])
+                ->pluck('warehouse_id');
+
+            $agentIds = \App\Models\Warehouse::whereIn('id', $warehouseIds)
+                ->whereNotNull('agent_id')
+                ->pluck('agent_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($agentIds)) {
+                return null; // ada item yang stoknya nggak cukup di gudang manapun
+            }
+
+            $candidateAgentSets[] = $agentIds;
+        }
+
+        // Irisan (intersection) semua set — agen yang punya stok cukup untuk SEMUA item sekaligus
+        $common = array_reduce($candidateAgentSets, function ($carry, $ids) {
+            return $carry === null ? $ids : array_values(array_intersect($carry, $ids));
+        }, null);
+
+        if (!empty($common)) {
+            // Prioritaskan agen wilayah rumah customer kalau dia termasuk yang punya stok cukup
+            if ($fallbackAgentId && in_array($fallbackAgentId, $common)) {
+                return $fallbackAgentId;
+            }
+            return $common[0];
+        }
+
+        return null;
     }
 
     public function destroy(Order $order)
