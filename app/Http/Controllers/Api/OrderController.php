@@ -29,6 +29,15 @@ class OrderController extends Controller
             $query->where('agent_id', $request->user()->id);
         } elseif ($request->user()->role === 'customer') {
             $query->where('outlet_id', $request->user()->outlet_id);
+        } elseif ($request->user()->role === 'kurir') {
+            // Sebelumnya kurir bisa lihat SEMUA order se-perusahaan di sini
+            // (cuma /delivery-orders yang benar di-filter), bikin widget
+            // "Order Aktif" di Home nggak nyambung sama isi tab Pengiriman
+            // yang sebenarnya. Sekarang keduanya konsisten.
+            $userId = $request->user()->id;
+            $query->whereHas('deliveryOrder', fn ($q) => $q->where('courier_id', $userId));
+        } elseif ($request->user()->role === 'gudang' && $request->user()->parent_id) {
+            $query->where('agent_id', $request->user()->parent_id);
         }
 
         if ($request->filled('status')) {
